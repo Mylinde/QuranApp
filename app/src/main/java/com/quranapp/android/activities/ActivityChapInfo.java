@@ -28,6 +28,7 @@ import com.quranapp.android.utils.chapterInfo.ChapterInfoJSInterface;
 import com.quranapp.android.compose.components.QuickReferenceHost;
 import com.quranapp.android.utils.chapterInfo.ChapterInfoUtils;
 import com.quranapp.android.utils.chapterInfo.ChapterInfoWebViewClient;
+import com.quranapp.android.utils.exceptions.NoInternetException;
 import com.quranapp.android.utils.receivers.NetworkStateReceiver;
 import com.quranapp.android.utils.thread.runner.CallableTaskRunner;
 import com.quranapp.android.utils.thread.tasks.BaseCallableTask;
