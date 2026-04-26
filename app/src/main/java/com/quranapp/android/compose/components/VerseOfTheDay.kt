@@ -53,7 +53,6 @@ import com.quranapp.android.components.reader.ChapterVersePair
 import com.quranapp.android.compose.components.common.IconButton
 import com.quranapp.android.compose.components.common.Loader
 import com.quranapp.android.compose.components.reader.LocalRecitation
-import com.quranapp.android.compose.components.reader.LocalWbwState
 import com.quranapp.android.compose.components.reader.ReaderProvider
 import com.quranapp.android.compose.components.settings.DailyReminderSheet
 import com.quranapp.android.compose.theme.alpha
@@ -242,9 +241,8 @@ internal fun VotdContent(
     val recState = LocalRecitation.current
     val isVersePlaying = recState.isAnyPlaying && recState.playingVerse.doesEqual(verse)
 
-    val wbwState = LocalWbwState.current
     LaunchedEffect(verse) {
-        wbwState.warmUpWord(verse.chapterNo, verse.verseNo, 0)
+        recState.warmUpWord(verse.chapterNo, verse.verseNo, 0)
     }
 
     Column {
