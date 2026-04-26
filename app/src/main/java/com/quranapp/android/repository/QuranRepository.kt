@@ -46,29 +46,15 @@ class QuranRepository(
         return mushafDao.getPageLines(mushafId, pageNo)
     }
 
-    suspend fun getJuzForMushafPages(
-        mushafId: Int,
-        pageNumbers: List<Int>,
-    ): Map<Int, Int> {
-        if (mushafId <= 0 || pageNumbers.isEmpty()) return emptyMap()
-
-        return mushafDao.getJuzForPages(mushafId, pageNumbers)
-            .associate { it.pageNumber to it.juzNo }
+    suspend fun getJuzForMushafPage(mushafId: Int, pageNo: Int): Int {
+        if (mushafId <= 0 || pageNo <= 0) return -1
+        return mushafDao.getJuzForPage(mushafId, pageNo) ?: -1
     }
 
-    suspend fun getHizbForMushafPages(
-        mushafId: Int,
-        pageNumbers: List<Int>,
-    ): Map<Int, List<Int>> {
-        if (mushafId <= 0 || pageNumbers.isEmpty()) return emptyMap()
-
-        return mushafDao.getHizbForPages(mushafId, pageNumbers)
-            .groupBy { it.pageNumber }
-            .mapValues { (_, rows) ->
-                rows.map { it.hizbNo }.distinct().sorted()
-            }
+    suspend fun getHizbForMushafPage(mushafId: Int, pageNo: Int): Int {
+        if (mushafId <= 0 || pageNo <= 0) return -1
+        return mushafDao.getHizbForPage(mushafId, pageNo) ?: -1
     }
-
 
     suspend fun getSurah(
         chapterNo: Int,
@@ -146,7 +132,7 @@ class QuranRepository(
         }
 
         val wordsFlat = if (verseIds.isNotEmpty()) {
-            ayahWordDao.getWordsForAyahs(verseIds, scriptCode)
+            ayahWordDao.getWordsForAyahs(verseIds, scriptCode.toDbScriptCode())
         } else {
             emptyList()
         }
@@ -190,7 +176,7 @@ class QuranRepository(
         val ayahByVerse = ayahs.associateBy { it.ayahNo }
         val verseIds = ayahs.map { it.ayahId }
 
-        val wordsFlat = ayahWordDao.getWordsForAyahs(verseIds, scriptCode)
+        val wordsFlat = ayahWordDao.getWordsForAyahs(verseIds, scriptCode.toDbScriptCode())
         val wordsByAyahId = groupWordsByAyahIdWithLastFlags(wordsFlat)
 
         val pageByAyahId = if (verseIds.isNotEmpty()) {
@@ -350,7 +336,7 @@ class QuranRepository(
             } else {
                 val middleIds = middle.map { it.ayahId }
                 if (middleIds.isNotEmpty()) {
-                    val flat = ayahWordDao.getWordsForAyahs(middleIds, scriptCode)
+                    val flat = ayahWordDao.getWordsForAyahs(middleIds, scriptCode.toDbScriptCode())
                     val byId = groupWordsByAyahIdWithLastFlags(flat)
                     for (ayah in middle) {
                         byId[ayah.ayahId]?.mapTo(out) { it }
@@ -501,6 +487,26 @@ class QuranRepository(
         }
     }
 
+    suspend fun getJuzForMushafPages(
+        mushafId: Int,
+        pageNumbers: List<Int>,
+    ): Map<Int, Int> {
+        if (mushafId <= 0 || pageNumbers.isEmpty()) return emptyMap()
+
+        return mushafDao.getJuzForPages(mushafId, pageNumbers)
+            .associate { it.pageNumber to it.juzNo }
+    }
+
+    suspend fun getHizbForMushafPages(
+        mushafId: Int,
+        pageNumbers: List<Int>,
+    ): Map<Int, Int> {
+        if (mushafId <= 0 || pageNumbers.isEmpty()) return emptyMap()
+
+        return mushafDao.getHizbForPages(mushafId, pageNumbers)
+            .associate { it.pageNumber to it.hizbNo }
+    }
+
     suspend fun getSurahsWithLocalizationsByChapterNos(
         chapterNos: List<Int>,
     ): Map<Int, SurahWithLocalizations> {
@@ -573,7 +579,7 @@ class QuranRepository(
         }
 
         if (ids.isEmpty()) return emptyMap()
-        val flat = ayahWordDao.getWordsForAyahs(ids.toList(), scriptCode)
+        val flat = ayahWordDao.getWordsForAyahs(ids.toList(), scriptCode.toDbScriptCode())
         return groupWordsByAyahIdWithLastFlags(flat)
     }
 
@@ -693,9 +699,15 @@ class QuranRepository(
         return mushafDao.getFirstPageOfChapter(mushafId, chapterNo)
     }
 
-    suspend fun getPageForVerse(surahNo: Int, ayahNo: Int, mushafId: Int): Int? {
-        if (mushafId <= 0 || surahNo <= 0 || ayahNo <= 0) return null
+    suspend fun getPageForVerse(surahNo: Int, ayahNo: Int, scriptCode: String? = null): Int? {
+        if (ayahNo == 1) {
+            return getFirstPageOfChapter(surahNo)
+        }
 
+        val mushafId = (scriptCode ?: ReaderPreferences.getQuranScript())
+            .toQuranMushafId(ReaderPreferences.getQuranScriptVariant())
+
+        if (mushafId <= 0 || surahNo <= 0 || ayahNo <= 0) return null
         return mushafDao.getPageForVerse(mushafId, ayahId = QuranUtils.getAyahId(surahNo, ayahNo))
     }
 

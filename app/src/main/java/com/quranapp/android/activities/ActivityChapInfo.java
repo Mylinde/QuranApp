@@ -44,6 +44,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -280,12 +281,10 @@ public class ActivityChapInfo extends BaseActivity {
     }
 
     private class LoadChapterInfoTask extends BaseCallableTask<String> {
-        private final File chapterInfoFile;
         private final String lang;
 
         public LoadChapterInfoTask(String lang) {
             this.lang = lang;
-            chapterInfoFile = fileUtils.getChapterInfoFile(lang, mChapterInfoMeta.chapterNo);
         }
 
         @Override
@@ -298,15 +297,33 @@ public class ActivityChapInfo extends BaseActivity {
 
         @Override
         public String call() throws Exception {
-            if (chapterInfoFile.exists()) {
-                String read = fileUtils.readText(chapterInfoFile);
-                if (!read.isEmpty()) {
-                    return read;
+            String data = "";
+            
+            // Try loading from assets first
+            try {
+                String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath(lang, mChapterInfoMeta.chapterNo);
+                data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
+                if (!data.isEmpty()) {
+                    return data;
                 }
-            } else {
-                fileUtils.createFile(chapterInfoFile);
+            } catch (Exception e) {
+                // Asset not found or error, continue to API fallback
             }
-
+            
+            // Fallback to English assets
+            if (data.isEmpty() && !"en".equals(lang)) {
+                try {
+                    String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath("en", mChapterInfoMeta.chapterNo);
+                    data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
+                    if (!data.isEmpty()) {
+                        return data;
+                    }
+                } catch (Exception e) {
+                    // Asset not found or error, continue to API fallback
+                }
+            }
+            
+            // Fallback to API
             if (!NetworkStateReceiver.isNetworkConnected(ActivityChapInfo.this)) {
                 throw new NoInternetException();
             }
@@ -323,7 +340,6 @@ public class ActivityChapInfo extends BaseActivity {
             conn.connect();
 
             InputStreamReader isr = new InputStreamReader(conn.getInputStream());
-
             BufferedReader br = new BufferedReader(isr);
             StringBuilder sb = new StringBuilder();
             String line;
@@ -335,15 +351,18 @@ public class ActivityChapInfo extends BaseActivity {
             br.close();
             conn.disconnect();
 
-            String data = sb.toString();
-            fileUtils.writeToFile(chapterInfoFile, data);
+            data = sb.toString();
+            
+            if (data.isEmpty()) {
+                throw new IOException("Chapter info not found in API");
+            }
+
             return data;
         }
 
         @Override
         public void onComplete(String result) {
-            if (result == null) {
-                chapterInfoFile.delete();
+            if (result == null || result.isEmpty()) {
                 loadFailed();
                 return;
             }
@@ -357,12 +376,7 @@ public class ActivityChapInfo extends BaseActivity {
         @Override
         public void onFailed(@NonNull @NotNull Exception e) {
             e.printStackTrace();
-            if (e instanceof NoInternetException || e.getCause() instanceof NoInternetException) {
-                chapterInfoFile.delete();
-                noInternet();
-            } else {
-                loadFailed();
-            }
+            loadFailed();
         }
     }
 }

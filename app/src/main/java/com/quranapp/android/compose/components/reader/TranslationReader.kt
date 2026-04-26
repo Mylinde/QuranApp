@@ -36,10 +36,11 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -72,7 +73,6 @@ import com.quranapp.android.utils.reader.TranslationPageBuilderParams
 import com.quranapp.android.utils.univ.StringUtils
 import com.quranapp.android.viewModels.ReaderViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.onStart
 
 data class TranslationPageVerse(
     val chapterNo: Int,
@@ -98,7 +98,7 @@ sealed class TranslationPageSection {
 data class TranslationPageItem(
     val pageNo: Int,
     val juzNo: Int,
-    val hizbNos: List<Int>,
+    val hizbNo: Int,
     val chapterNames: String,
     val translationSlug: String,
     val sections: List<TranslationPageSection>,
@@ -110,11 +110,12 @@ fun ReaderLayoutTranslationPageMode(
     nestedScrollConnection: NestedScrollConnection,
     onSyncStateChanged: (Boolean) -> Unit = {},
 ) {
-    val mushafSession by readerVm.mushafSession.collectAsState()
-    val translationPageItems by readerVm.translationPageItems.collectAsState()
+    val uiState by readerVm.uiState.collectAsStateWithLifecycle()
+    val mushafLayoutKey by readerVm.mushafLayoutKey
 
-    val sessionLayout = mushafSession.layout
-    val pageCount = mushafSession.pageCount
+    val pageCount by produceState(0, mushafLayoutKey) {
+        value = readerVm.mushafPageCount(mushafLayoutKey.toMushafId())
+    }
 
     val context = LocalContext.current
     val colors = colorScheme
@@ -131,20 +132,24 @@ fun ReaderLayoutTranslationPageMode(
         )
     }
 
+    LaunchedEffect(buildParams) {
+        readerVm.clearTranslationPageCache()
+    }
+
     val initialPageIndex =
-        mushafSession.currentPageNo?.minus(1)?.coerceAtLeast(0) ?: 0
+        uiState.currentPageNo?.minus(1)?.coerceAtLeast(0) ?: 0
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPageIndex)
 
-    var previousMushafKey by remember { mutableStateOf(sessionLayout) }
+    var previousMushafKey by remember { mutableStateOf(mushafLayoutKey) }
 
-    LaunchedEffect(sessionLayout, pageCount, mushafSession.currentPageNo) {
-        val layoutJustChanged = previousMushafKey != sessionLayout
+    LaunchedEffect(mushafLayoutKey, pageCount, uiState.currentPageNo) {
+        val layoutJustChanged = previousMushafKey != mushafLayoutKey
 
         if (!layoutJustChanged) return@LaunchedEffect
 
         if (pageCount <= 0) return@LaunchedEffect
 
-        val p = mushafSession.currentPageNo ?: return@LaunchedEffect
+        val p = uiState.currentPageNo ?: return@LaunchedEffect
 
         val idx = p.coerceIn(1, pageCount) - 1
 
@@ -152,10 +157,10 @@ fun ReaderLayoutTranslationPageMode(
             listState.scrollToItem(idx)
         }
 
-        previousMushafKey = sessionLayout
+        previousMushafKey = mushafLayoutKey
     }
 
-    LaunchedEffect(listState, buildParams, mushafSession.version) {
+    LaunchedEffect(listState, pageCount, mushafLayoutKey, buildParams) {
         snapshotFlow {
             val visible = listState.layoutInfo.visibleItemsInfo
 
@@ -165,17 +170,22 @@ fun ReaderLayoutTranslationPageMode(
                 visible.map { it.index + 1 }
             }
         }
-            .onStart {
-                emit(
-                    listOf(mushafSession.currentPageNo ?: 1)
-                )
-            }
             .distinctUntilChanged()
             .collect { anchorPages ->
-                readerVm.fetchTranslationPages(
-                    context, anchorPages, buildParams
-                )
+                if (pageCount > 0) {
+                    readerVm.fetchTranslationPages(
+                        context, anchorPages, pageCount, buildParams
+                    )
+                }
             }
+    }
+
+    LaunchedEffect(uiState.currentPageNo, pageCount, mushafLayoutKey, buildParams) {
+        val vmPage = uiState.currentPageNo ?: return@LaunchedEffect
+
+        readerVm.fetchTranslationPages(
+            context, listOf(vmPage), pageCount, buildParams
+        )
     }
 
     val navigateToPage by readerVm.navigateToPage.collectAsStateWithLifecycle()
@@ -189,7 +199,10 @@ fun ReaderLayoutTranslationPageMode(
 
                 val currentPageNo = (currentIndex + 1).coerceIn(1, pageCount)
 
-                readerVm.updateCurrentPageNo(currentPageNo)
+                readerVm.updateState {
+                    it.copy(currentPageNo = currentPageNo)
+                }
+
                 readerVm.updateLastKnownVerseFromTranslationPage(currentPageNo)
             }
     }
@@ -203,7 +216,10 @@ fun ReaderLayoutTranslationPageMode(
 
         try {
             listState.scrollToItem(clamped - 1)
-            readerVm.updateCurrentPageNo(clamped)
+
+            if (clamped != targetPage) {
+                readerVm.updateState { it.copy(currentPageNo = clamped) }
+            }
         } finally {
             readerVm.consumePageNavigation()
         }
@@ -282,18 +298,16 @@ fun ReaderLayoutTranslationPageMode(
         ) {
             items(
                 count = pageCount,
-                key = { index -> sessionLayout to index },
+                key = { index -> mushafLayoutKey to index },
             ) { pageIndex ->
-                val pageNo = pageIndex + 1
-                val item = translationPageItems[pageNo]
-
-                key(sessionLayout, pageIndex) {
+                key(mushafLayoutKey, pageIndex) {
                     if (pageIndex > 0) {
                         Spacer(Modifier.height(12.dp))
                     }
 
                     TranslationModePage(
-                        item = item,
+                        readerVm = readerVm,
+                        pageNo = pageIndex + 1,
                     )
                 }
             }
@@ -303,8 +317,14 @@ fun ReaderLayoutTranslationPageMode(
 
 @Composable
 private fun TranslationModePage(
-    item: TranslationPageItem?
+    readerVm: ReaderViewModel,
+    pageNo: Int,
 ) {
+    val i by remember(pageNo) {
+        derivedStateOf { readerVm.translationPageItems[pageNo] }
+    }
+
+    val item = i
     if (item == null) {
         TranslationPageLoadingSkeleton()
         return
@@ -405,19 +425,7 @@ private fun TranslationBookPageHeader(item: TranslationPageItem) {
     val juzLabel =
         if (item.juzNo > 0) stringResource(R.string.strLabelJuzNo, item.juzNo) else ""
     val hizbLabel =
-        item.hizbNos
-            .filter { it > 0 }
-            .distinct()
-            .sorted()
-            .let { hizbs ->
-                when (hizbs.size) {
-                    0 -> ""
-                    else -> "${stringResource(R.string.strTitleReaderHizb)} ${
-                        hizbs.map { String.format("%d", it) }.joinToString(" / ")
-                    }"
-                }
-            }
-    val rightLabel = listOf(juzLabel, hizbLabel).filter { it.isNotBlank() }.joinToString(", ")
+        if (item.hizbNo > 0) stringResource(R.string.labelHizbNo, item.hizbNo) else ""
 
     Row(
         modifier = Modifier
@@ -460,7 +468,7 @@ private fun TranslationBookPageHeader(item: TranslationPageItem) {
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
-                text = rightLabel,
+                text = "${juzLabel}, ${hizbLabel}",
                 style = typography.labelSmall.merge(tightTextStyle),
                 color = scheme.onSurface.alpha(0.75f),
                 maxLines = 1,
