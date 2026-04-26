@@ -22,6 +22,36 @@ interface MushafDao {
     )
     suspend fun getPageLines(mushafId: Int, pageNumber: Int): List<MushafMapEntity>
 
+    /**
+     * Juz of the first ayah line on this mushaf page (ordered by line number), from [ayahs].
+     */
+    @Query(
+        """
+        SELECT a.juz_no FROM mushaf_map AS m
+        INNER JOIN ayahs AS a ON m.start_ayah_id = a.ayah_id
+        WHERE m.mushaf_id = :mushafId AND m.page_number = :pageNumber
+          AND m.start_ayah_id IS NOT NULL
+        ORDER BY m.line_number ASC
+        LIMIT 1
+        """
+    )
+    suspend fun getJuzForPage(mushafId: Int, pageNumber: Int): Int?
+
+    /**
+     * Hizb of the first ayah line on this mushaf page (ordered by line number), from [ayahs].
+     */
+    @Query(
+        """
+        SELECT a.hizb_no FROM mushaf_map AS m
+        INNER JOIN ayahs AS a ON m.start_ayah_id = a.ayah_id
+        WHERE m.mushaf_id = :mushafId AND m.page_number = :pageNumber
+          AND m.start_ayah_id IS NOT NULL
+        ORDER BY m.line_number ASC
+        LIMIT 1
+        """
+    )
+    suspend fun getHizbForPage(mushafId: Int, pageNumber: Int): Int?
+
     @Query(
         """
         SELECT MIN(m.page_number) FROM mushaf_map AS m
@@ -99,7 +129,7 @@ interface MushafDao {
     ): List<MushafMapEntity>
 
     /**
-     * Juz from the first ayah line per page (by [MushafMapEntity.lineNumber]).
+     * Juz from the first ayah line per page (by [MushafMapEntity.lineNumber]), matching [getJuzForPage].
      */
     @Query(
         """
@@ -121,16 +151,20 @@ interface MushafDao {
     ): List<PageJuzProjection>
 
     /**
-     * All hizb numbers present on each mushaf page.
+     * Hizb from the first ayah line per page (by [MushafMapEntity.lineNumber]), matching [getHizbForPage].
      */
     @Query(
         """
-        SELECT DISTINCT m.page_number, a.hizb_no
+        SELECT m.page_number, a.hizb_no
         FROM mushaf_map m
         INNER JOIN ayahs a ON m.start_ayah_id = a.ayah_id
         WHERE m.mushaf_id = :mushafId AND m.page_number IN (:pageNumbers)
           AND m.start_ayah_id IS NOT NULL
-        ORDER BY m.page_number ASC, a.hizb_no ASC
+          AND m.line_number = (
+            SELECT MIN(m2.line_number) FROM mushaf_map m2
+            WHERE m2.mushaf_id = :mushafId AND m2.page_number = m.page_number
+              AND m2.start_ayah_id IS NOT NULL
+          )
         """
     )
     suspend fun getHizbForPages(

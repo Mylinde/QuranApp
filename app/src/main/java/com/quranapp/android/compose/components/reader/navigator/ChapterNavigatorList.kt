@@ -31,7 +31,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -47,7 +46,6 @@ import com.quranapp.android.compose.components.common.SearchTextField
 import com.quranapp.android.compose.theme.alpha
 import com.quranapp.android.db.entities.quran.SurahEntity
 import com.quranapp.android.db.relations.SurahWithLocalizations
-import com.quranapp.android.utils.quran.QuranUtils
 import com.quranapp.android.viewModels.ReaderViewModel
 import com.quranapp.android.viewModels.ReaderViewType
 import verticalFadingEdge
@@ -59,24 +57,8 @@ fun ChapterNavigatorList(
     onVerseSelected: (Int, Int) -> Unit,
 ) {
     val surahs by readerVm.surahs.collectAsState()
-    val chapterViewState = readerVm.uiState.collectAsState().value.viewType as? ReaderViewType.Chapter
-
-    val mushafSession by readerVm.mushafSession.collectAsState()
-    val currentMushafId = mushafSession.layout.toMushafId()
-    val currentPageNo = mushafSession.currentPageNo
-
-    val activeChapterNo by produceState<Int?>(chapterViewState?.chapterNo, currentPageNo, currentMushafId) {
-        value = when {
-            chapterViewState?.chapterNo != null -> chapterViewState.chapterNo
-
-            currentPageNo != null && currentMushafId > 0 -> {
-                val firstAyahId = readerVm.repository.getFirstAyahIdOnPage(currentMushafId, currentPageNo)
-                firstAyahId?.let { QuranUtils.getVerseNoFromAyahId(it).first }
-            }
-
-            else -> null
-        }
-    }
+    val chapterViewState =
+        readerVm.uiState.collectAsState().value.viewType as? ReaderViewType.Chapter
 
 
     if (surahs.isEmpty()) return Loader(true)
@@ -85,11 +67,11 @@ fun ChapterNavigatorList(
         ChapterList(
             readerVm,
             surahs,
-            activeChapterNo,
+            chapterViewState,
             onChapterSelected,
         )
         ChapterVerseList(
-            currentChapter = activeChapterNo?.let { surahs.getOrNull(it - 1) }?.surah,
+            currentChapter = chapterViewState?.chapterNo?.let { surahs.get(it - 1) }?.surah,
             onVerseSelected = onVerseSelected
         )
     }
@@ -99,11 +81,11 @@ fun ChapterNavigatorList(
 private fun RowScope.ChapterList(
     readerVm: ReaderViewModel,
     surahs: List<SurahWithLocalizations>,
-    activeChapterNo: Int?,
+    chapterViewState: ReaderViewType.Chapter?,
     onChapterSelected: (Int) -> Unit
 ) {
     val gridState = rememberLazyGridState(
-        initialFirstVisibleItemIndex = activeChapterNo?.let { it - 1 } ?: 0,
+        initialFirstVisibleItemIndex = chapterViewState?.chapterNo?.let { it - 1 } ?: 0,
         initialFirstVisibleItemScrollOffset = -100
     )
 
@@ -159,7 +141,7 @@ private fun RowScope.ChapterList(
                 items(filteredSurahs, key = { it.surah.surahNo }) { surah ->
                     ChapterCard(
                         surah,
-                        isCurrent = activeChapterNo == surah.surah.surahNo,
+                        isCurrent = chapterViewState?.chapterNo == surah.surah.surahNo,
                         iconWithPrefix = false,
                         onClick = {
                             onChapterSelected(surah.surah.surahNo)

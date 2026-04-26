@@ -237,7 +237,6 @@ object ReaderItemsBuilder {
         val isDarkThem = ThemeUtils.isDarkTheme(params.context)
 
         val scriptCode = ReaderPreferences.getQuranScript()
-        val mushafId = scriptCode.toQuranMushafId(ReaderPreferences.getQuranScriptVariant())
 
         val batch =
             quranRepository.loadVersesBatch(chapterNo, fromVerse, toVerse + 1, scriptCode)
@@ -371,7 +370,7 @@ object ReaderItemsBuilder {
         out.addSectionMarkerAtRangeEnd(
             params.context,
             quranRepository,
-            mushafId,
+            scriptCode,
             chapterNo = chapterNo,
             toVerse = toVerse,
             verseCount = surah.surah.ayahCount,
@@ -667,7 +666,7 @@ object ReaderItemsBuilder {
                             translationSlug = translationSlug,
                             params = params,
                             juzNo = juzByPage[pageNo] ?: -1,
-                            hizbNos = hizbByPage[pageNo].orEmpty(),
+                            hizbNo = hizbByPage[pageNo] ?: -1,
                             chapterNames = chapterNamesByPage[pageNo].orEmpty(),
                         )
                         pageNo to item
@@ -695,7 +694,7 @@ object ReaderItemsBuilder {
         translationSlug: String,
         params: TranslationPageBuilderParams,
         juzNo: Int,
-        hizbNos: List<Int>,
+        hizbNo: Int,
         chapterNames: String,
     ): TranslationPageItem {
         val sections = ArrayList<TranslationPageSection>()
@@ -841,7 +840,7 @@ object ReaderItemsBuilder {
         return TranslationPageItem(
             pageNo = pageNo,
             juzNo = juzNo,
-            hizbNos = hizbNos,
+            hizbNo = hizbNo,
             chapterNames = chapterNames,
             translationSlug = translationSlug,
             sections = sections,
@@ -977,7 +976,7 @@ object ReaderItemsBuilder {
     private suspend fun ArrayList<ReaderLayoutItem>.addSectionMarkerAtRangeEnd(
         context: Context,
         quranRepository: QuranRepository,
-        mushafId: Int,
+        scriptCode: String,
         chapterNo: Int,
         toVerse: Int,
         verseCount: Int,
@@ -1011,11 +1010,11 @@ object ReaderItemsBuilder {
             !isLastVerseOfChapter -> {
                 val p = batch.pageByVerseNo[toVerse + 1]
                 if (p != null && p > 0) p
-                else quranRepository.getPageForVerse(chapterNo, toVerse + 1, mushafId)
+                else quranRepository.getPageForVerse(chapterNo, toVerse + 1, scriptCode)
             }
 
             QuranMeta.isChapterValid(chapterNo + 1) ->
-                quranRepository.getPageForVerse(chapterNo + 1, 1, mushafId)
+                quranRepository.getPageForVerse(chapterNo + 1, 1, scriptCode)
 
             else -> null
         }

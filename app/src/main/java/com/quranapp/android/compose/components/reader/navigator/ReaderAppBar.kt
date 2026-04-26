@@ -164,13 +164,13 @@ fun ReaderAppBar(
             ) {
                 when (readerMode) {
                     ReaderMode.Reading -> {
-                        StickyHeaderModeMushaf(readerVm) {
+                        StickyHeaderModeMushaf(readerVm, uiState) {
                             showNavigatorSheet = true
                         }
                     }
 
                     ReaderMode.Translation -> {
-                        StickyHeaderModeTranslation(readerVm) {
+                        StickyHeaderModeTranslation(readerVm, uiState) {
                             showNavigatorSheet = true
                         }
                     }
@@ -376,11 +376,11 @@ private fun StickyHeaderModeVbV(
 @Composable
 private fun StickyHeaderModeMushaf(
     readerVm: ReaderViewModel,
+    uiState: ReaderUiState,
     onNavigatorRequest: () -> Unit
 ) {
-    val mushafSession by readerVm.mushafSession.collectAsState()
     val resources = LocalResources.current
-    val currentPageNo = mushafSession.currentPageNo
+    val currentPageNo = uiState.currentPageNo
     val scriptCode = ReaderPreferences.observeQuranScript()
     val scriptVariant = ReaderPreferences.observeQuranScriptVariant()
 
@@ -426,24 +426,17 @@ private fun StickyHeaderModeMushaf(
             return@produceState
         }
 
-        val juzNo = readerVm.repository.getJuzForMushafPages(mushafId, listOf(pageNo))[pageNo]
-            ?: 0
-        val hizbNos = readerVm.repository.getHizbForMushafPages(mushafId, listOf(pageNo))[pageNo]
-            .orEmpty()
-            .filter { it > 0 }
-            .distinct()
-            .sorted()
+        val juzNo = readerVm.repository.getJuzForMushafPage(mushafId, pageNo)
+        val hizbNo = readerVm.repository.getHizbForMushafPage(mushafId, pageNo)
 
         value = buildString {
             if (juzNo > 0) {
                 append(resources.getString(R.string.strLabelJuzNo, juzNo))
             }
 
-            if (hizbNos.isNotEmpty()) {
+            if (hizbNo > 0) {
                 if (isNotEmpty()) append(" \u2022 ")
-                append(resources.getString(R.string.strTitleReaderHizb))
-                append(" ")
-                append(hizbNos.joinToString(" / "))
+                append(resources.getString(R.string.labelHizbNo, hizbNo))
             }
         }
     }
@@ -524,11 +517,11 @@ private fun StickyHeaderModeMushaf(
 @Composable
 private fun StickyHeaderModeTranslation(
     readerVm: ReaderViewModel,
+    uiState: ReaderUiState,
     onNavigatorRequest: () -> Unit
 ) {
-    val mushafSession by readerVm.mushafSession.collectAsState()
     val context = LocalContext.current
-    val currentPageNo = mushafSession.currentPageNo
+    val currentPageNo = uiState.currentPageNo
     val translationSlug = ReaderPreferences.observePrimaryTranslationSlug()
     val bookName by produceState("", translationSlug) {
         value = QuranTranslationFactory(context).use {
