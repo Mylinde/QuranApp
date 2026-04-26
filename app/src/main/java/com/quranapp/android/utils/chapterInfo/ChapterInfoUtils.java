@@ -10,16 +10,12 @@ public class ChapterInfoUtils {
 
     public static final String CHAPTER_INFO_FILE_NAME_FORMAT = "chapter_info_%d-%s.txt";
 
-    public static String prepareChapterInfoUrl(String lang, int chapterNo) {
-        return "https://api.quran.com/api/v4/chapters/" + chapterNo + "/info?language=" + lang;
+    public static String prepareChapterInfoAssetPath(String lang, int chapterNo) {
+        return "api/v4/chapters/" + lang + "/" + chapterNo + "/" + lang + ".json";
     }
 
     public static String prepareChapterInfoFilePath(String lang, int chapterNo) {
         final String fileName = StringUtils.formatInvariant(CHAPTER_INFO_FILE_NAME_FORMAT, chapterNo, lang);
         return FileUtils.createPath(String.valueOf(chapterNo), fileName);
-    }
-
-    public static String prepareChapterInfoAssetPath(String lang, int chapterNo) {
-        return FileUtils.createPath("api/v4/chapters", lang, String.valueOf(chapterNo), lang + ".json");
     }
 }

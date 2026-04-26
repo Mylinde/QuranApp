@@ -10,10 +10,10 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+/.venv
 /captures
 .externalNativeBuild
 .cxx
 local.properties
 /keys
 ktlint.jar
-

@@ -208,7 +208,7 @@ internal fun prepareArabicTextBitmap(
 
     if (quranScript.isKFQPCScript()) {
         val fontsDir = FileUtils.newInstance(context).getKFQPCScriptFontDir(quranScript)
-        val fontFile = File(fontsDir, pageNo.toKFQPCFontFilename(true))
+        val fontFile = File(fontsDir, pageNo.toKFQPCFontFilename())
 
         fontQuranText = if (fontFile.length() > 0L) {
             Typeface.createFromFile(fontFile)
@@ -216,9 +216,7 @@ internal fun prepareArabicTextBitmap(
             Typeface.createFromFile(File(fontsDir, pageNo.toKFQPCFontFilenameOld()))
         }
     } else {
-        fontQuranText = context.getFont(
-            quranScript.getQuranScriptFontRes(true)
-        )
+        fontQuranText = context.getFont(quranScript.getQuranScriptFontRes())
     }
 
     if (fontQuranText == null) {

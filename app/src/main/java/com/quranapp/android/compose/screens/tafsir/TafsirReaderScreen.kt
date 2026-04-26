@@ -425,7 +425,6 @@ private fun buildTafsirHtml(
         "{{THEME}}" to theme,
         "{{CONTENT}}" to fullContent,
         "{{DIR}}" to direction,
-        "{{LANG}}" to langCode,
         "{{FONT_SIZE}}" to fontSizePercent.toString()
     )
 

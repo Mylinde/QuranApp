@@ -16,32 +16,24 @@ class FontResolver private constructor(val context: Context) {
     // non-KFQPC: one font per script
     private val scriptFontCache = ConcurrentHashMap<String, FontFamily>()
 
-    // KFQPC: one font per (script, pageNo, dark/light resolution for UI)
-    private val kfqpcFontCache = ConcurrentHashMap<Triple<String, Int, Boolean>, FontFamily>()
+    // KFQPC: one font per (script, pageNo)
+    private val kfqpcFontCache = ConcurrentHashMap<Pair<String, Int>, FontFamily>()
 
     private val fileUtils by lazy { FileUtils.newInstance(context) }
 
     private fun loadKfqpcTypeface(
         script: String,
         pageNo: Int,
-        isDark: Boolean,
     ): Typeface {
         return try {
             val fontsDir = fileUtils.getKFQPCScriptFontDir(script)
-            val useDark = isDark && script.getQuranScriptFontHasDark()
-            val darkFile = File(fontsDir, pageNo.toKFQPCFontFilename(true))
-            val lightFile = File(fontsDir, pageNo.toKFQPCFontFilename(false))
+
+            val newFile = File(fontsDir, pageNo.toKFQPCFontFilename())
             val oldFile = File(fontsDir, pageNo.toKFQPCFontFilenameOld())
 
-            val primary = if (useDark) darkFile else lightFile
-            val fallbackTtf = if (useDark) lightFile else null
-
             when {
-                primary.exists() && primary.length() > 0L ->
-                    Typeface.createFromFile(primary)
-
-                fallbackTtf != null && fallbackTtf.exists() && fallbackTtf.length() > 0L ->
-                    Typeface.createFromFile(fallbackTtf)
+                newFile.exists() && newFile.length() > 0L ->
+                    Typeface.createFromFile(newFile)
 
                 oldFile.exists() && oldFile.length() > 0L ->
                     Typeface.createFromFile(oldFile)
@@ -57,27 +49,26 @@ class FontResolver private constructor(val context: Context) {
     fun fontFamily(
         script: String,
         pageNo: Int,
-        isDark: Boolean,
     ): FontFamily {
         return if (script.isKFQPCScript()) {
-            kfqpcFontCache.getOrPut(Triple(script, pageNo, isDark)) {
-                loadKfqpcTypeface(script, pageNo, isDark).asFontFamily()
+            kfqpcFontCache.getOrPut(script to pageNo) {
+                loadKfqpcTypeface(script, pageNo).asFontFamily()
             }
         } else {
             scriptFontCache.getOrPut(script) {
                 context
-                    .getFont(script.getQuranScriptFontRes(isDark))
+                    .getFont(script.getQuranScriptFontRes())
                     ?.asFontFamily()
                     ?: FontFamily.Default
             }
         }
     }
 
-    fun prefetch(script: String, pages: List<Int>, isDark: Boolean) {
+    fun prefetch(script: String, pages: List<Int>) {
         if (!script.isKFQPCScript()) {
             scriptFontCache.getOrPut(script) {
                 context
-                    .getFont(script.getQuranScriptFontRes(isDark))
+                    .getFont(script.getQuranScriptFontRes())
                     ?.asFontFamily()
                     ?: FontFamily.Default
             }
@@ -87,8 +78,8 @@ class FontResolver private constructor(val context: Context) {
         pages
             .distinct()
             .forEach { pageNo ->
-                kfqpcFontCache.getOrPut(Triple(script, pageNo, isDark)) {
-                    loadKfqpcTypeface(script, pageNo, isDark).asFontFamily()
+                kfqpcFontCache.getOrPut(script to pageNo) {
+                    loadKfqpcTypeface(script, pageNo).asFontFamily()
                 }
             }
     }

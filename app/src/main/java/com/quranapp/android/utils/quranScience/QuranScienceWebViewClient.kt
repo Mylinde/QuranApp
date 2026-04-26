@@ -9,7 +9,6 @@ import com.quranapp.android.activities.reference.ActivityQuranScienceContent
 import com.quranapp.android.compose.utils.appLocale
 import com.quranapp.android.compose.utils.preferences.ReaderPreferences
 import com.quranapp.android.utils.reader.factory.ReaderFactory
-import com.quranapp.android.utils.reader.getQuranScriptFontHasDark
 import com.quranapp.android.utils.reader.getQuranScriptFontRes
 import com.quranapp.android.utils.reader.isKFQPCScript
 import com.quranapp.android.utils.reader.toKFQPCFontFilename
@@ -64,20 +63,13 @@ open class QuranScienceWebViewClient(private val activity: ActivityQuranScienceC
 
                         if (pageNo != null) {
                             val fontsDir = fileUtils.getKFQPCScriptFontDir(savedScript)
-                            val useDark =
-                                ThemeUtils.isDarkTheme(ctx) && savedScript.getQuranScriptFontHasDark()
-                            val primaryFile =
-                                File(fontsDir, pageNo.toKFQPCFontFilename(useDark))
-                            val lightFile =
-                                File(fontsDir, pageNo.toKFQPCFontFilename(false))
+
+                            val newFile = File(fontsDir, pageNo.toKFQPCFontFilename())
                             val oldFile = File(fontsDir, pageNo.toKFQPCFontFilenameOld())
 
                             data = when {
-                                primaryFile.exists() && primaryFile.length() > 0L ->
-                                    primaryFile.inputStream()
-
-                                useDark && lightFile.exists() && lightFile.length() > 0L ->
-                                    lightFile.inputStream()
+                                newFile.exists() && newFile.length() > 0L ->
+                                    newFile.inputStream()
 
                                 oldFile.exists() && oldFile.length() > 0L ->
                                     oldFile.inputStream()
@@ -86,9 +78,7 @@ open class QuranScienceWebViewClient(private val activity: ActivityQuranScienceC
                             }
                         }
                     } else {
-                        data = ctx.resources.openRawResource(
-                            savedScript.getQuranScriptFontRes(ThemeUtils.isDarkTheme(ctx))
-                        )
+                        data = ctx.resources.openRawResource(savedScript.getQuranScriptFontRes())
                     }
                 }
             }
