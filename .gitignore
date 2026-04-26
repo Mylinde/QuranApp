@@ -17,18 +17,3 @@ local.properties
 /keys
 ktlint.jar
 
-# Help files and Environment
-.venv/
-download_chapters.py
-quran_api.py
-inventory/api/v4/chapters/
-*.log
-apply_translations_batch.py
-apply_translations_helper.py
-batch_translate.py
-extract_texts.py
-full_translate_job.py
-texts_to_translate.json
-translate_6_15.py
-.gitignore
-translator_helper.py
