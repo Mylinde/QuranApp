@@ -7,7 +7,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
@@ -48,12 +47,7 @@ data class PageBuilderParams(
     val type: Typography,
     val density: Density,
     val contentWidthPx: Int,
-    val isDark: Boolean,
-) {
-    fun toKey(): String {
-        return "$contentWidthPx:${density.density}:$isDark"
-    }
-}
+)
 
 data class TranslationPageBuilderParams(
     val context: Context,
@@ -76,8 +70,7 @@ data class QuranTextStyleParams(
     val pageNo: Int,
     val script: String,
     val sizeMultiplier: Float,
-    val useSmallSize: Boolean = false,
-    val isDark: Boolean,
+    val useSmallSize: Boolean = false
 )
 
 fun getTranslationTextStyle(
@@ -116,7 +109,7 @@ fun getQuranTextStyle(
     val fontSize = with(density) { (basePx * params.sizeMultiplier).toSp() }
 
     return params.type.headlineSmall.copy(
-        fontFamily = params.fontResolver.fontFamily(params.script, params.pageNo, params.isDark),
+        fontFamily = params.fontResolver.fontFamily(params.script, params.pageNo),
         fontSize = fontSize,
         color = params.colors.onBackground,
         textDirection = TextDirection.Rtl,
@@ -124,20 +117,12 @@ fun getQuranTextStyle(
     )
 }
 
-fun mushafCappedBaseStyleForScale(base: TextStyle, pageScale: Float): TextStyle {
-    val cap = pageScale.coerceIn(
-        MUSHAF_FONT_SCALE_AT_MIN_WIDTH,
-        MUSHAF_FONT_SCALE_AT_MAX_WIDTH
-    )
+fun mushafCappedBaseStyle(base: TextStyle, lineInnerWidthDp: Float): TextStyle {
+    val cap = mushafScreenMaxFontScale(lineInnerWidthDp)
     val scaled = (base.fontSize.value * cap).sp
     return base.copy(
         fontSize = scaled,
         lineHeight = (scaled.value * MUSHAF_LINE_HEIGHT_MULT).sp,
-        lineHeightStyle = LineHeightStyle(
-            alignment = LineHeightStyle.Alignment.Center,
-            trim = LineHeightStyle.Trim.Both,
-            mode = LineHeightStyle.Mode.Tight
-        )
     )
 }
 
@@ -151,10 +136,6 @@ private fun mushafScreenMaxFontScale(lineInnerWidthDp: Float): Float {
         MUSHAF_FONT_SCALE_AT_MIN_WIDTH,
         MUSHAF_FONT_SCALE_AT_MAX_WIDTH
     )
-}
-
-fun mushafScaleForWidth(lineInnerWidthDp: Float): Float {
-    return mushafScreenMaxFontScale(lineInnerWidthDp)
 }
 
 
@@ -238,38 +219,20 @@ private fun measureMushafLineWidth(
     return sum
 }
 
-fun measureMushafLineWidthForStyle(
-    words: List<AyahWordEntity>,
-    centered: Boolean,
-    textMeasurer: TextMeasurer,
-    style: TextStyle,
-    centeredGapPx: Float,
-    minInterWordGapPx: Float,
-): Float {
-    return measureMushafLineWidth(
-        words = words,
-        centered = centered,
-        textMeasurer = textMeasurer,
-        style = style,
-        centeredGapPx = centeredGapPx,
-        minInterWordGapPx = minInterWordGapPx,
-    )
-}
 
-
-private const val MUSHAF_LINE_HEIGHT_MULT = 2f
+private const val MUSHAF_LINE_HEIGHT_MULT = 1.8f
 private const val MUSHAF_FONT_WIDTH_DP_MIN = 260f
 const val MUSHAF_FONT_WIDTH_DP_MAX = 720f
 
 val MUSHAF_PAGE_HORIZONTAL_PADDING = 12.dp
-const val MUSHAF_FONT_SCALE_AT_MIN_WIDTH = 0.85f
-const val MUSHAF_FONT_SCALE_AT_MAX_WIDTH = 2f
+private const val MUSHAF_FONT_SCALE_AT_MIN_WIDTH = 0.85f
+private const val MUSHAF_FONT_SCALE_AT_MAX_WIDTH = 1f
 
 /** Inter-word gap as a fraction of font size for centered mushaf lines. */
-const val MUSHAF_CENTERED_GAP_FRACTION = 0.22f
+private const val MUSHAF_CENTERED_GAP_FRACTION = 0.22f
 
 /** Minimum gap between adjacent words (all lines), as a fraction of font size — avoids overlap when justified. */
-const val MUSHAF_MIN_INTER_WORD_GAP_FRACTION = 0.1f
+private const val MUSHAF_MIN_INTER_WORD_GAP_FRACTION = 0.1f
 
 /** When shrinking to fit, do not go below this fraction of the (screen-capped) base size. */
 private const val MUSHAF_LINE_SHRINK_MIN = 0.16f

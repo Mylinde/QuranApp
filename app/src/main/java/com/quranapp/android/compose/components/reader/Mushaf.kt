@@ -1,7 +1,5 @@
 package com.quranapp.android.compose.components.reader
 
-import ThemeUtils
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
-import androidx.compose.material3.MaterialTheme.shapes
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -27,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -52,8 +50,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quranapp.android.compose.components.common.Loader
+import com.quranapp.android.compose.components.reader.dialogs.WbwSheet
 import com.quranapp.android.compose.components.reader.dialogs.WbwSheetData
 import com.quranapp.android.compose.theme.alpha
+import com.quranapp.android.compose.utils.preferences.ReaderPreferences
 import com.quranapp.android.db.entities.quran.AyahWordEntity
 import com.quranapp.android.utils.quran.QuranUtils
 import com.quranapp.android.utils.reader.MUSHAF_PAGE_HORIZONTAL_PADDING
@@ -93,7 +93,6 @@ data class QuranPageItem(
     val pageNo: Int,
     val juzNo: Int,
     val lines: List<QuranPageLineItem>,
-    val cacheKey: String,
 )
 
 private data class MushafPageMeasurementKey(
@@ -130,22 +129,19 @@ fun ReaderLayoutPageMode(
     val colors = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
     val density = LocalDensity.current
-    val isDark = ThemeUtils.observeDarkTheme()
 
-    val pageBuilderParams =
-        remember(colors, typography, textMeasurer, density, contentWidth, isDark) {
-            PageBuilderParams(
-                context = context,
-                colors = colors,
-                type = typography,
-                textMeasurer = textMeasurer,
-                density = density,
-                contentWidthPx = with(density) {
-                    (contentWidth - MUSHAF_PAGE_HORIZONTAL_PADDING * 2).roundToPx()
-                },
-                isDark = isDark
-            )
-        }
+    val pageBuilderParams = remember(colors, typography, textMeasurer, density, contentWidth) {
+        PageBuilderParams(
+            context = context,
+            colors = colors,
+            type = typography,
+            textMeasurer = textMeasurer,
+            density = density,
+            contentWidthPx = with(density) {
+                (contentWidth - MUSHAF_PAGE_HORIZONTAL_PADDING * 2).roundToPx()
+            }
+        )
+    }
 
     LaunchedEffect(pagerState, pageBuilderParams, mushafSession.version) {
         snapshotFlow {
@@ -266,6 +262,11 @@ fun ReaderLayoutPageMode(
             }
     }
 
+    var wbwSheetData by remember { mutableStateOf<WbwSheetData?>(null) }
+    val wbwIdRaw = ReaderPreferences.observeWbwId()
+    val wbwRecitationOn = ReaderPreferences.observeWbwRecitationEnabled()
+    val mushafWordTapEnabled = wbwIdRaw.isNotBlank() || wbwRecitationOn
+
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Box(
             modifier = Modifier
@@ -288,12 +289,27 @@ fun ReaderLayoutPageMode(
                         contentWidth,
                         ruledPageDecoration,
                         nestedScrollConnection,
+                        onMushafWordClick = { word ->
+                            val pair = QuranUtils.getVerseNoFromAyahId(word.ayahId)
+
+                            wbwSheetData = WbwSheetData(
+                                chapterNo = pair.first,
+                                verseNo = pair.second,
+                                wordIndex = word.wordIndex
+                            )
+                        },
+                        mushafWordTapEnabled = mushafWordTapEnabled,
                     )
                 }
             }
 
         }
     }
+
+    WbwSheet(
+        data = wbwSheetData,
+        onDismiss = { wbwSheetData = null },
+    )
 }
 
 @Composable
@@ -302,6 +318,8 @@ private fun PageModePage(
     contentWidth: Dp,
     ruledPageDecoration: Boolean,
     nestedScrollConnection: NestedScrollConnection,
+    onMushafWordClick: (AyahWordEntity) -> Unit,
+    mushafWordTapEnabled: Boolean,
 ) {
     if (item == null) {
         return Loader(true)
@@ -324,96 +342,96 @@ private fun PageModePage(
             .toSet()
     }
 
-    TextStyleProvider(emptyMap()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center,
+                .fillMaxHeight()
+                .widthIn(max = contentWidth)
+                .verticalFadingEdge(scrollState, color = colorScheme.surface, length = 48.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .widthIn(max = contentWidth)
-                    .verticalFadingEdge(scrollState, color = colorScheme.surface, length = 24.dp),
-            ) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Column(
-                        Modifier
-                            .verticalScroll(scrollState)
-                            .nestedScroll(nestedScrollConnection)
-                            .padding(top = 16.dp, bottom = 64.dp)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Column(
+                    Modifier
+                        .verticalScroll(scrollState)
+                        .nestedScroll(nestedScrollConnection)
+                        .padding(top = 16.dp, bottom = 64.dp)
+                        .then(
+                            if (ruledPageDecoration) {
+                                Modifier
+                            } else {
+                                Modifier.padding(
+                                    start = MUSHAF_PAGE_HORIZONTAL_PADDING,
+                                    end = MUSHAF_PAGE_HORIZONTAL_PADDING,
+                                )
+                            }
+                        )
+                        .fillMaxWidth(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .then(
                                 if (ruledPageDecoration) {
-                                    Modifier
-                                } else {
-                                    Modifier.padding(
-                                        start = MUSHAF_PAGE_HORIZONTAL_PADDING,
-                                        end = MUSHAF_PAGE_HORIZONTAL_PADDING,
+                                    Modifier.mushafPageOuterFrameBorder(
+                                        color = colorScheme.outline.alpha(0.5f),
+                                        strokeWidth = 1.dp,
                                     )
+                                } else {
+                                    Modifier
                                 }
-                            )
-                            .fillMaxWidth(),
+                            ),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(
-                                    if (ruledPageDecoration) {
-                                        Modifier.mushafPageOuterFrameBorder(
-                                            color = colorScheme.outline.alpha(0.5f),
-                                            strokeWidth = 1.dp,
-                                        )
-                                    } else {
-                                        Modifier
-                                    }
-                                ),
-                        ) {
-                            Column(Modifier.fillMaxWidth()) {
-                                item.lines.forEachIndexed { index, line ->
-                                    key(line.lineNo) {
-                                        val showLineRuleBelow =
-                                            ruledPageDecoration && index < item.lines.lastIndex
-
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .then(
-                                                    if (showLineRuleBelow) {
-                                                        Modifier.mushafHorizontalRuleBelow(
-                                                            color = colorScheme.outline.alpha(0.5f),
-                                                            strokeWidth = 1.dp,
-                                                        )
-                                                    } else {
-                                                        Modifier
-                                                    }
-                                                ),
-                                        ) {
-                                            if (ruledPageDecoration) {
-                                                val hPadding =
-                                                    if (line is QuranPageLineItem.Title) 0.dp
-                                                    else MUSHAF_PAGE_HORIZONTAL_PADDING
-
-                                                Column(
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(
-                                                            start = hPadding,
-                                                            end = hPadding,
-                                                        ),
-                                                ) {
-                                                    MushafLineContent(
-                                                        line = line,
-                                                        playingWordKeys = playingWordKeys,
-                                                        ruledPageDecoration = ruledPageDecoration,
+                        Column(Modifier.fillMaxWidth()) {
+                            item.lines.forEachIndexed { index, line ->
+                                key(line.lineNo) {
+                                    val showLineRuleBelow =
+                                        ruledPageDecoration && index < item.lines.lastIndex
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .then(
+                                                if (showLineRuleBelow) {
+                                                    Modifier.mushafHorizontalRuleBelow(
+                                                        color = colorScheme.outline.alpha(0.5f),
+                                                        strokeWidth = 1.dp,
                                                     )
+                                                } else {
+                                                    Modifier
                                                 }
-                                            } else {
+                                            ),
+                                    ) {
+                                        if (ruledPageDecoration) {
+                                            val hPadding = if (line is QuranPageLineItem.Title) 0.dp
+                                            else MUSHAF_PAGE_HORIZONTAL_PADDING
+
+                                            Column(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(
+                                                        start = hPadding,
+                                                        end = hPadding,
+                                                    ),
+                                            ) {
                                                 MushafLineContent(
                                                     line = line,
                                                     playingWordKeys = playingWordKeys,
                                                     ruledPageDecoration = ruledPageDecoration,
+                                                    onMushafWordClick = onMushafWordClick,
+                                                    mushafWordTapEnabled = mushafWordTapEnabled,
                                                 )
                                             }
+                                        } else {
+                                            MushafLineContent(
+                                                line = line,
+                                                playingWordKeys = playingWordKeys,
+                                                ruledPageDecoration = ruledPageDecoration,
+                                                onMushafWordClick = onMushafWordClick,
+                                                mushafWordTapEnabled = mushafWordTapEnabled,
+                                            )
                                         }
                                     }
                                 }
@@ -431,6 +449,8 @@ private fun MushafLineContent(
     line: QuranPageLineItem,
     playingWordKeys: Set<Pair<Int, Int>>,
     ruledPageDecoration: Boolean,
+    onMushafWordClick: (AyahWordEntity) -> Unit,
+    mushafWordTapEnabled: Boolean,
 ) {
     when (line) {
         is QuranPageLineItem.Title -> ChapterTitle(line.chapterNo, ruledPageDecoration)
@@ -439,6 +459,8 @@ private fun MushafLineContent(
             textLine = line,
             layout = line.layout,
             playingWordKeys = playingWordKeys,
+            onMushafWordClick = onMushafWordClick,
+            mushafWordTapEnabled = mushafWordTapEnabled,
         )
     }
 }
@@ -448,6 +470,8 @@ private fun MushafLineText(
     textLine: QuranPageLineItem.Text,
     layout: MushafLineLayout,
     playingWordKeys: Set<Pair<Int, Int>>,
+    onMushafWordClick: (AyahWordEntity) -> Unit,
+    mushafWordTapEnabled: Boolean,
 ) {
     val words = textLine.words
     val fittedStyle = layout.fittedStyle
@@ -463,6 +487,8 @@ private fun MushafLineText(
                     centeredGap, Alignment.CenterHorizontally
                 ),
                 modifier = Modifier.align(Alignment.Center),
+                onMushafWordClick = onMushafWordClick,
+                mushafWordTapEnabled = mushafWordTapEnabled,
             )
         }
     } else {
@@ -472,6 +498,8 @@ private fun MushafLineText(
             playingWordKeys = playingWordKeys,
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
+            onMushafWordClick = onMushafWordClick,
+            mushafWordTapEnabled = mushafWordTapEnabled,
         )
     }
 }
@@ -483,6 +511,8 @@ private fun MushafWordsRow(
     playingWordKeys: Set<Pair<Int, Int>>,
     horizontalArrangement: Arrangement.Horizontal,
     modifier: Modifier = Modifier,
+    onMushafWordClick: (AyahWordEntity) -> Unit,
+    mushafWordTapEnabled: Boolean,
 ) {
     val wordRects = remember(words) {
         mutableStateListOf<Rect?>().apply { repeat(words.size) { add(null) } }
@@ -490,10 +520,6 @@ private fun MushafWordsRow(
 
     val highlightRects = mergedMushafHighlightRects(words, wordRects, playingWordKeys)
     val highlightColor = colorScheme.primary.alpha(0.3f)
-
-    val wbwState = LocalWbwState.current
-    val quranTextStyles = LocalQuranTextStyle.current
-    val shouldShowTooltip = !wbwState.isWbwSheetOpen
 
     Row(
         modifier = modifier.drawBehind {
@@ -508,62 +534,33 @@ private fun MushafWordsRow(
         horizontalArrangement = horizontalArrangement,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        for ((index, word) in words.withIndex()) {
-            val positionModifier = Modifier.onGloballyPositioned { coordinates ->
-                val pos = coordinates.positionInParent()
-                val sz = coordinates.size
-                wordRects[index] = Rect(
-                    pos.x,
-                    pos.y,
-                    pos.x + sz.width,
-                    pos.y + sz.height,
-                )
-            }
-
-            if (wbwState.activeTooltipWord == word && shouldShowTooltip) {
-                WbwTooltip(
-                    word = word,
-                    onDismiss = { wbwState.onDismissTooltip() },
-                    onOpenSheet = {
-                        val pair = QuranUtils.getVerseNoFromAyahId(word.ayahId)
-
-                        wbwState.toggleWbwSheet(
-                            WbwSheetData(
-                                chapterNo = pair.first,
-                                verseNo = pair.second,
-                                wordIndex = word.wordIndex,
-                            )
-                        )
-                    },
-                    textStyles = quranTextStyles,
-                ) {
-                    Word(
-                        active = true,
-                        word = word,
-                        fittedStyle = fittedStyle,
-                        onClick = { wbwState.onWordClick(word) },
-                        modifier = positionModifier,
+        words.forEachIndexed { index, word ->
+            Word(
+                word = word,
+                fittedStyle = fittedStyle,
+                mushafWordTapEnabled = mushafWordTapEnabled,
+                onClick = { onMushafWordClick(word) },
+                modifier = Modifier.onGloballyPositioned { coordinates ->
+                    val pos = coordinates.positionInParent()
+                    val sz = coordinates.size
+                    wordRects[index] = Rect(
+                        pos.x,
+                        pos.y,
+                        pos.x + sz.width,
+                        pos.y + sz.height,
                     )
-                }
-            } else {
-                Word(
-                    active = wbwState.activeTooltipWord == word,
-                    word = word,
-                    fittedStyle = fittedStyle,
-                    onClick = { wbwState.onWordClick(word) },
-                    modifier = positionModifier,
-                )
-            }
+                },
+            )
         }
     }
 }
 
 @Composable
 private fun Word(
-    active: Boolean,
     word: AyahWordEntity,
     fittedStyle: TextStyle,
     onClick: () -> Unit,
+    mushafWordTapEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Text(
@@ -572,12 +569,13 @@ private fun Word(
         style = fittedStyle,
         maxLines = 1,
         softWrap = false,
-        modifier = modifier
-            .background(
-                if (active) colorScheme.primary.alpha(0.3f) else Color.Transparent,
-                shape = shapes.small
-            )
-            .clickable { onClick() }
+        modifier = modifier.then(
+            if (mushafWordTapEnabled) {
+                Modifier.clickable { onClick() }
+            } else {
+                Modifier
+            }
+        )
     )
 }
 

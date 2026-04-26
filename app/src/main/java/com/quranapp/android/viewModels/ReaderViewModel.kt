@@ -654,7 +654,6 @@ class ReaderViewModel(application: Application) : ReaderProviderViewModel(applic
         anchorPages: Collection<Int>,
         params: PageBuilderParams
     ) {
-        val builderKey = params.toKey()
         val session = _mushafSession.value
         val totalPages = session.pageCount
         val targets = mushafPrefetchTargets(anchorPages, totalPages)
@@ -662,9 +661,7 @@ class ReaderViewModel(application: Application) : ReaderProviderViewModel(applic
 
         val missing = pagesLoadingMutex.withLock {
             targets.filter { page ->
-                val item = _pageItems.value[page]
-
-                item == null || item.cacheKey != builderKey
+                !_pageItems.value.containsKey(page)
             }
         }
 
