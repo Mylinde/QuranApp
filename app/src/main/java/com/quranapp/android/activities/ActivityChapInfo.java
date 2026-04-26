@@ -42,11 +42,8 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
 import java.util.List;
 
 public class ActivityChapInfo extends BaseActivity {
@@ -280,12 +277,10 @@ public class ActivityChapInfo extends BaseActivity {
     }
 
     private class LoadChapterInfoTask extends BaseCallableTask<String> {
-        private final File chapterInfoFile;
         private final String lang;
 
         public LoadChapterInfoTask(String lang) {
             this.lang = lang;
-            chapterInfoFile = fileUtils.getChapterInfoFile(lang, mChapterInfoMeta.chapterNo);
         }
 
         @Override
@@ -298,52 +293,29 @@ public class ActivityChapInfo extends BaseActivity {
 
         @Override
         public String call() throws Exception {
-            if (chapterInfoFile.exists()) {
-                String read = fileUtils.readText(chapterInfoFile);
-                if (!read.isEmpty()) {
-                    return read;
+            String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath(lang, mChapterInfoMeta.chapterNo);
+            String data = "";
+
+            try {
+                data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
+            } catch (Exception e) {
+                // Fallback to English if current language is not available
+                if (!"en".equals(lang)) {
+                    assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath("en", mChapterInfoMeta.chapterNo);
+                    data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
                 }
-            } else {
-                fileUtils.createFile(chapterInfoFile);
             }
 
-            if (!NetworkStateReceiver.isNetworkConnected(ActivityChapInfo.this)) {
-                throw new NoInternetException();
+            if (data.isEmpty()) {
+                throw new IOException("Chapter info not found in assets");
             }
 
-            String urlStr = ChapterInfoUtils.prepareChapterInfoUrl(lang, mChapterInfoMeta.chapterNo);
-            URL url = new URL(urlStr);
-
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestProperty("Content-Length", "0");
-            conn.setRequestProperty("Connection", "close");
-            conn.setConnectTimeout(180000);
-            conn.setReadTimeout(180000);
-            conn.setAllowUserInteraction(false);
-            conn.connect();
-
-            InputStreamReader isr = new InputStreamReader(conn.getInputStream());
-
-            BufferedReader br = new BufferedReader(isr);
-            StringBuilder sb = new StringBuilder();
-            String line;
-
-            while ((line = br.readLine()) != null) {
-                sb.append(line).append("\n");
-            }
-
-            br.close();
-            conn.disconnect();
-
-            String data = sb.toString();
-            fileUtils.writeToFile(chapterInfoFile, data);
             return data;
         }
 
         @Override
         public void onComplete(String result) {
-            if (result == null) {
-                chapterInfoFile.delete();
+            if (result == null || result.isEmpty()) {
                 loadFailed();
                 return;
             }
@@ -357,12 +329,7 @@ public class ActivityChapInfo extends BaseActivity {
         @Override
         public void onFailed(@NonNull @NotNull Exception e) {
             e.printStackTrace();
-            if (e instanceof NoInternetException || e.getCause() instanceof NoInternetException) {
-                chapterInfoFile.delete();
-                noInternet();
-            } else {
-                loadFailed();
-            }
+            loadFailed();
         }
     }
 }
