@@ -42,8 +42,12 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 
 public class ActivityChapInfo extends BaseActivity {
@@ -293,21 +297,64 @@ public class ActivityChapInfo extends BaseActivity {
 
         @Override
         public String call() throws Exception {
-            String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath(lang, mChapterInfoMeta.chapterNo);
             String data = "";
-
+            
+            // Try loading from assets first
             try {
+                String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath(lang, mChapterInfoMeta.chapterNo);
                 data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
+                if (!data.isEmpty()) {
+                    return data;
+                }
             } catch (Exception e) {
-                // Fallback to English if current language is not available
-                if (!"en".equals(lang)) {
-                    assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath("en", mChapterInfoMeta.chapterNo);
+                // Asset not found or error, continue to API fallback
+            }
+            
+            // Fallback to English assets
+            if (data.isEmpty() && !"en".equals(lang)) {
+                try {
+                    String assetPath = ChapterInfoUtils.prepareChapterInfoAssetPath("en", mChapterInfoMeta.chapterNo);
                     data = ResUtils.readAssetsTextFile(ActivityChapInfo.this, assetPath);
+                    if (!data.isEmpty()) {
+                        return data;
+                    }
+                } catch (Exception e) {
+                    // Asset not found or error, continue to API fallback
                 }
             }
+            
+            // Fallback to API
+            if (!NetworkStateReceiver.isNetworkConnected(ActivityChapInfo.this)) {
+                throw new NoInternetException();
+            }
 
+            String urlStr = ChapterInfoUtils.prepareChapterInfoUrl(lang, mChapterInfoMeta.chapterNo);
+            URL url = new URL(urlStr);
+
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestProperty("Content-Length", "0");
+            conn.setRequestProperty("Connection", "close");
+            conn.setConnectTimeout(180000);
+            conn.setReadTimeout(180000);
+            conn.setAllowUserInteraction(false);
+            conn.connect();
+
+            InputStreamReader isr = new InputStreamReader(conn.getInputStream());
+            BufferedReader br = new BufferedReader(isr);
+            StringBuilder sb = new StringBuilder();
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+
+            br.close();
+            conn.disconnect();
+
+            data = sb.toString();
+            
             if (data.isEmpty()) {
-                throw new IOException("Chapter info not found in assets");
+                throw new IOException("Chapter info not found in API");
             }
 
             return data;

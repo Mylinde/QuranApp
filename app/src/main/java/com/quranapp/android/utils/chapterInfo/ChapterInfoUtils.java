@@ -18,4 +18,9 @@ public class ChapterInfoUtils {
         final String fileName = StringUtils.formatInvariant(CHAPTER_INFO_FILE_NAME_FORMAT, chapterNo, lang);
         return FileUtils.createPath(String.valueOf(chapterNo), fileName);
     }
+
+    public static String prepareChapterInfoAssetPath(String lang, int chapterNo) {
+        final String fileName = StringUtils.formatInvariant(CHAPTER_INFO_FILE_NAME_FORMAT, chapterNo, lang);
+        return FileUtils.createPath("chapter_info", fileName);
+    }
 }
