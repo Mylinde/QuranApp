@@ -20,7 +20,6 @@ public class ChapterInfoUtils {
     }
 
     public static String prepareChapterInfoAssetPath(String lang, int chapterNo) {
-        final String fileName = StringUtils.formatInvariant(CHAPTER_INFO_FILE_NAME_FORMAT, chapterNo, lang);
-        return FileUtils.createPath("chapter_info", fileName);
+        return FileUtils.createPath("api/v4/chapters", lang, String.valueOf(chapterNo), lang + ".json");
     }
 }
