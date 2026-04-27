@@ -44,6 +44,18 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        val debugKeystore = file(System.getenv("HOME") + "/.android/debug.keystore")
+        if (debugKeystore.exists()) {
+            create("debugKey") {
+                storeFile = debugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isDebuggable = true
@@ -60,6 +72,8 @@ android {
         }
 
         create("releaseDebug") {
+            signingConfig = signingConfigs.findByName("debugKey")
+            
             isDebuggable = true
             isMinifyEnabled = true
             isShrinkResources = true
