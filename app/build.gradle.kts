@@ -74,6 +74,8 @@ android {
                 "proguard-rules.pro"
             )
 
+            matchingFallbacks += listOf("debug")
+
             /* ---------------------------------------------------------------- */
             resValue("string", "cleartextTrafficPermitted", "true")
         }
