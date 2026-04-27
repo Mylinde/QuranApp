@@ -42,6 +42,15 @@ val fontSurah by lazy {
     )
 }
 
+val fontTajweed by lazy {
+    FontFamily(
+        Font(
+            R.font.qpc_v4_tajweed,
+            weight = FontWeight.Normal,
+        ),
+    )
+}
+
 val tightTextStyle = TextStyle(
     lineHeightStyle = LineHeightStyle.Default.copy(
         mode = LineHeightStyle.Mode.Tight,
