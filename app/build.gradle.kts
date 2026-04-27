@@ -72,7 +72,9 @@ android {
         }
 
         create("releaseDebug") {
-            signingConfig = signingConfigs.findByName("debugKey")
+            if (signingConfigs.findByName("debugKey") != null) {
+                signingConfig = signingConfigs.getByName("debugKey")
+            }
             
             isDebuggable = true
             isMinifyEnabled = true

@@ -48,5 +48,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debug-optimized-apk
+          name: release-optimized-apk
           path: ${{ steps.find_apk.outputs.apk-path }}
