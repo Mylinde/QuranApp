@@ -59,6 +59,25 @@ android {
             resValue("string", "cleartextTrafficPermitted", "true")
         }
 
+        create("releaseDebug") {
+            isDebuggable = true
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            applicationIdSuffix = ".debugopt"
+            versionNameSuffix = "-debugopt"
+
+            resValue("string", "app_name", "QuranApp Debug Optimized")
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+
+            /* ---------------------------------------------------------------- */
+            resValue("string", "cleartextTrafficPermitted", "true")
+        }
+
         release {
             isDebuggable = false
             isMinifyEnabled = true
