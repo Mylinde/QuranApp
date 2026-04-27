@@ -30,13 +30,11 @@ object QuranScriptUtils {
     const val SCRIPT_DK_INDOPAK = "dk_indopak"
     const val SCRIPT_KFQPC_V1 = "kfqpc_v1"
     const val SCRIPT_KFQPC_V2 = "kfqpc_v2"
-    const val SCRIPT_TAJWEED = "tajweed"
 
-    const val PREVIEW_TEXT_DK_INDOPAK = "بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ \u06DD"
-    const val PREVIEW_TEXT_UTHMANI = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ ١"
+    const val PREVIEW_TEXT_DK_INDOPAK = "بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ \u06DD"
+    const val PREVIEW_TEXT_UTHMANI = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ ١"
     const val PREVIEW_TEXT_KFQPC_V1 = "ﭑ ﭒ ﭓ ﭔ ﭕ"
     const val PREVIEW_TEXT_KFQPC_V2 = "ﱰ ﱱ ﱲ ﱳ ﱴ"
-    const val PREVIEW_TEXT_TAJWEED = "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ ١"
 
     const val SCRIPT_DEFAULT = SCRIPT_UTHMANI
 
@@ -104,25 +102,6 @@ object QuranScriptUtils {
                 )
             }
 
-            SCRIPT_TAJWEED -> mapOf(
-                "en" to "Tajweed",
-                "ar" to "تجويد",
-                "bn" to "তাজউইদ",
-                "ckb" to "تاجویِد",
-                "de" to "Tajweed",
-                "es" to "Tajweed",
-                "fa" to "تجوید",
-                "fr" to "Tajweed",
-                "gu" to "તજવીદ",
-                "hi" to "तजवीद",
-                "in" to "Tajweed",
-                "it" to "Tajweed",
-                "ml" to "തജ്വീദ്",
-                "pt" to "Tajweed",
-                "tr" to "Tecvid",
-                "ur" to "تجوید",
-            )
-
             else -> emptyMap()
         }
     }
@@ -140,7 +119,6 @@ object QuranScriptUtils {
         SCRIPT_UTHMANI to listOf(),
         SCRIPT_KFQPC_V1 to listOf(),
         SCRIPT_KFQPC_V2 to listOf(),
-        SCRIPT_TAJWEED to listOf(),
         SCRIPT_DK_INDOPAK to listOf(
             QuranScriptVariant.INDOPAK_15,
             QuranScriptVariant.INDOPAK_16
@@ -212,7 +190,6 @@ fun String.getScriptPreviewText(): String = when (this) {
     QuranScriptUtils.SCRIPT_DK_INDOPAK -> QuranScriptUtils.PREVIEW_TEXT_DK_INDOPAK
     QuranScriptUtils.SCRIPT_KFQPC_V1 -> QuranScriptUtils.PREVIEW_TEXT_KFQPC_V1
     QuranScriptUtils.SCRIPT_KFQPC_V2 -> QuranScriptUtils.PREVIEW_TEXT_KFQPC_V2
-    QuranScriptUtils.SCRIPT_TAJWEED -> QuranScriptUtils.PREVIEW_TEXT_TAJWEED
     else -> QuranScriptUtils.PREVIEW_TEXT_UTHMANI
 }
 
@@ -221,7 +198,6 @@ fun String.getQuranScriptVerseTextSizeSmallRes(): Int = when (this) {
     QuranScriptUtils.SCRIPT_DK_INDOPAK -> R.dimen.dmnReaderTextSizeArIndoPakSmall
     QuranScriptUtils.SCRIPT_KFQPC_V1 -> R.dimen.dmnReaderTextSizeArQpcV1Small
     QuranScriptUtils.SCRIPT_KFQPC_V2 -> R.dimen.dmnReaderTextSizeArQpcV2Small
-    QuranScriptUtils.SCRIPT_TAJWEED -> R.dimen.dmnReaderTextSizeArUthmaniSmall
     else -> R.dimen.dmnReaderTextSizeArUthmaniSmall
 }
 
@@ -237,7 +213,6 @@ fun String.getQuranScriptVerseTextSizeMediumRes(): Int = when (this) {
     QuranScriptUtils.SCRIPT_DK_INDOPAK -> R.dimen.dmnReaderTextSizeArIndoPakMedium
     QuranScriptUtils.SCRIPT_KFQPC_V1 -> R.dimen.dmnReaderTextSizeArQpcV1Medium
     QuranScriptUtils.SCRIPT_KFQPC_V2 -> R.dimen.dmnReaderTextSizeArQpcV2Medium
-    QuranScriptUtils.SCRIPT_TAJWEED -> R.dimen.dmnReaderTextSizeArUthmaniMedium
     else -> R.dimen.dmnReaderTextSizeArUthmaniMedium
 }
 
@@ -245,7 +220,6 @@ fun String.getQuranScriptFontRes(): Int = when (this) {
     QuranScriptUtils.SCRIPT_DK_INDOPAK -> R.font.digital_khatt_indopak
     QuranScriptUtils.SCRIPT_KFQPC_V1 -> R.font.qpc_v1_page_1
     QuranScriptUtils.SCRIPT_KFQPC_V2 -> R.font.qpc_v2_page_604
-    QuranScriptUtils.SCRIPT_TAJWEED -> R.font.qpc_v4_tajweed
     else -> R.font.uthmanic_hafs
 }
 
@@ -260,8 +234,7 @@ fun String.toQuranMushafId(
     }
 
     QuranScriptUtils.SCRIPT_KFQPC_V2,
-    QuranScriptUtils.SCRIPT_UTHMANI,
-    QuranScriptUtils.SCRIPT_TAJWEED -> 1
+    QuranScriptUtils.SCRIPT_UTHMANI -> 1
 
     QuranScriptUtils.SCRIPT_KFQPC_V1 -> 5
 
